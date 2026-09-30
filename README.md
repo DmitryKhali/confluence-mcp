@@ -1,6 +1,6 @@
 # confluence-mcp
 
-MCP server for Confluence (Server / Data Center). Provides read access to pages, sections, tables, and search via the Confluence REST API v1.
+MCP server for Confluence (Server / Data Center). Provides read and write access to pages, sections, tables, and search via the Confluence REST API v1.
 
 > **Confluence Server / Data Center only.** Uses Personal Access Token (PAT) for authentication.
 
@@ -15,6 +15,10 @@ MCP server for Confluence (Server / Data Center). Provides read access to pages,
 | `get_page_metadata` | Lightweight: title, version, author, dates, labels — no content, always fast |
 | `get_page_children` | Direct child pages of a page |
 | `get_page_attachments` | Explicit attachment list (opt-in — `include_attachments: false` skips it) |
+| `linkify_jira_keys` | Wrap bare Jira issue keys (e.g. `PROJ-123`) in clickable links; `dry_run` by default |
+| `create_page` | Create a new page from Markdown (or raw storage-format XML) |
+| `update_page` | Replace or append to an existing page's body; auto-handles version bump |
+| `move_page` | Move a page under a new parent (change ancestor); body/title untouched |
 
 ### Key features
 
@@ -22,6 +26,14 @@ MCP server for Confluence (Server / Data Center). Provides read access to pages,
 - **`include_tables: false`** — hides wide tables from Markdown (they remain in `tables` JSON field)
 - **`include_attachments: false`** — skips the attachment list entirely, saving 5-10K tokens
 - Section extraction stops at the next heading of same or higher level
+- **`create_page` / `update_page`** accept Markdown by default (`content_format="markdown"`) — a
+  deliberate subset: headings, paragraphs, bold/italic/code, links, lists (nested by 2-space
+  indent), tables, code fences, blockquotes, horizontal rules. No nested/overlapping inline
+  formatting (e.g. bold containing italic). For anything beyond that, pass
+  `content_format="storage"` with raw Confluence storage-format XML.
+- **`update_page`** always re-fetches the current version and writes `version + 1` — Confluence
+  itself rejects a write against a stale version, so this fails safely rather than corrupting
+  content on a concurrent edit.
 
 ## Setup
 
@@ -49,6 +61,7 @@ Copy the token — it's shown only once.
 | `CONFLUENCE_TOKEN` | — | — | Personal Access Token (PAT). On macOS can use Keychain instead (see below) |
 | `CONFLUENCE_KEYCHAIN_SERVICE` | — | `confluence_pat` | macOS Keychain service name (alternative to `CONFLUENCE_TOKEN`) |
 | `CONFLUENCE_MAX_CHARS` | — | `50000` | Max characters before truncation kicks in |
+| `JIRA_BROWSE_URL` | — | — | Jira issue URL prefix for `linkify_jira_keys`, e.g. `https://jira.example.com/browse/`. Required only for that tool |
 
 **macOS Keychain alternative** — store the token once, no env var needed:
 ```bash
